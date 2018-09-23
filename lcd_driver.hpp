@@ -72,7 +72,8 @@ class LcdDriver {
   void    ramDataWrite(const char *data);
   void    ramDataRead(uint8_t *       returnData,
                       const uint32_t &totalDataRead,
-                      const uint8_t & startingRamAddr);
+                      const uint8_t & startingRamAddr,
+                      const bool &    isDataRam);
 
  public:
   LcdDriver(const LcdConfig &lcdConfig);

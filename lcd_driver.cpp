@@ -201,16 +201,24 @@ void LcdDriver::enable(void) {
 
   // Initialize the UART for console I/O.
   UARTStdioConfig(0, 115200, 16000000);
+  displayWrite("01234");
+  uint8_t returnData[5] = {0};
 
   for (;;) {
-    // displayWrite("Nacedes");
+    displayWrite("01234");
     // uint32_t startComamndList[] = {LCD_CLEAR_COMMAND};
     // parallelDataWrite(startComamndList, 1, false);
 
-    cursorPositionChange(3, 1);
+    // cursorPositionChange(3, 1);
 
-    UARTprintf("Instr Read: %d\n", instructionDataRead());
-    // _generalTimer.wait(500000);
+    ramDataRead(returnData, 5, 0, true);
+    UARTprintf("0: %d, 1: %d, 2: %d, 3: %d, 4: %d\n",
+               returnData[0],
+               returnData[1],
+               returnData[2],
+               returnData[3],
+               returnData[4]);
+    _generalTimer.wait(5000000000);
   }
 }
 
@@ -255,7 +263,7 @@ void LcdDriver::ramDataWrite(const char* data) {
   uint32_t dataList[1] = {0};
 
   for (uint32_t strIndex = 0; strIndex <= strlen(data); ++strIndex) {
-    if (isalpha(data[strIndex])) {
+    if (isalpha(data[strIndex]) || isdigit(data[strIndex])) {
       dataList[0] = data[strIndex];
       parallelDataWrite(dataList, 1, true);
     } else if (isspace(data[strIndex])) {
@@ -283,14 +291,18 @@ uint8_t LcdDriver::instructionDataRead(void) {
   return dataBuf[0];
 }
 
+// bit 6 or 7 will be set based on ram types
 void LcdDriver::ramDataRead(uint8_t*        returnData,
                             const uint32_t& totalDataRead,
-                            const uint8_t&  startingRamAddr) {
+                            const uint8_t&  startingRamAddr,
+                            const bool&     isDataRam) {
   assert(returnData);
   assert(totalDataRead > 0);
 
   // set addr counter b4 read
   uint32_t dataAddr[] = {startingRamAddr};
+  isDataRam ? bit_set(dataAddr[0], BIT(7)) : bit_set(dataAddr[0], BIT(6));
+
   parallelDataWrite(dataAddr, 1, false);
 
   parallelDataRead(true, returnData, totalDataRead);
