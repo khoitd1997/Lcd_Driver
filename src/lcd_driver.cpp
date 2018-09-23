@@ -1,3 +1,12 @@
+/**
+ * @brief source file for LcdDriver class, contain most user facing methods as well as major
+ * backend communication function
+ *
+ * @file lcd_driver.cpp
+ * @author Khoi Trinh
+ * @date 2018-09-23
+ */
+
 #include "lcd_driver.hpp"
 
 #include <cassert>
@@ -23,6 +32,12 @@
 
 namespace lcddriver {
 
+/**
+ * @brief Helper function that is used to enable the clock for a port then wait until it's ready
+ *
+ * @param clockMask mask of the peripheral clock, for example: SYSCTL_PERIPH_GPIOB for general gpio
+ * of portB
+ */
 static void enableClockPeripheral(const uint32_t& clockMask) {
   SysCtlPeripheralEnable(clockMask);
   while (!SysCtlPeripheralReady(clockMask)) {
@@ -52,10 +67,12 @@ void LcdDriver::init(void) {
   pinModeSwitch(_lcdConfig.enablePin, false);
   pinPadConfig(_lcdConfig.enablePin);
 
-  pinDescCheck(_lcdConfig.backLightPin);
-  enableClockPeripheral(_lcdConfig.backLightPin[PIN_DESC_CLOCK_INDEX]);
-  pinModeSwitch(_lcdConfig.backLightPin, false);
-  pinPadConfig(_lcdConfig.backLightPin);
+  if (_lcdConfig.useBacklight) {
+    pinDescCheck(_lcdConfig.backLightPin);
+    enableClockPeripheral(_lcdConfig.backLightPin[PIN_DESC_CLOCK_INDEX]);
+    pinModeSwitch(_lcdConfig.backLightPin, false);
+    pinPadConfig(_lcdConfig.backLightPin);
+  }
 
   for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
     pinDescCheck(_lcdConfig.parallelPinList[pin]);
@@ -81,7 +98,7 @@ void LcdDriver::comModeSwitch(const bool& isReadMode) {
 }
 
 void LcdDriver::comSetup(const bool& isDataReg, const bool& isReadMode) {
-  const uint32_t waitTime = isReadMode ? LCD_DATA_READ_WAIT_NANOSEC : LCD_DATA_WRITE_WAIT_NANOSEC;
+  const uint32_t waitTime = isReadMode ? LCD_DATA_READ_DELAY_NANOSEC : LCD_DATA_WRITE_WAIT_NANOSEC;
   // setup so that the lcd knows that we want to talk with it
   registerSelect(isDataReg);
   comModeSwitch(isReadMode);
@@ -97,7 +114,7 @@ void LcdDriver::comStop(void) {
 }
 
 void LcdDriver::comMaintain(const bool& isReadMode) {
-  const uint32_t waitTime = isReadMode ? LCD_DATA_READ_WAIT_NANOSEC : LCD_DATA_WRITE_WAIT_NANOSEC;
+  const uint32_t waitTime = isReadMode ? LCD_DATA_READ_DELAY_NANOSEC : LCD_DATA_WRITE_WAIT_NANOSEC;
   _generalTimer.wait(LCD_DATA_SETUP_TIME_NANOSEC);
   comSwitch(false);
   _generalTimer.wait(LCD_MIN_CYCLE_TIME_NANOSEC - LCD_DATA_WRITE_WAIT_NANOSEC);

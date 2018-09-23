@@ -1,3 +1,12 @@
+/**
+ * @brief Implement utils functions from LcdDriver class, low-level backend stuffs are generally
+ * here
+ *
+ * @file lcd_utils.cpp
+ * @author Khoi Trinh
+ * @date 2018-09-23
+ */
+
 #include "lcd_driver.hpp"
 
 #include <cassert>

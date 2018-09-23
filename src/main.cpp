@@ -1,3 +1,12 @@
+/**
+ * @brief main file for the lcd controller, used mainly for development testing as well as serve as
+ * an example for how to use the LcdDriver class
+ *
+ * @file main.cpp
+ * @author Khoi Trinh
+ * @date 2018-09-23
+ */
+
 #include "lcd_driver.hpp"
 
 // peripheral
@@ -19,12 +28,16 @@ using namespace lcddriver;
 int main(void) {
   // 80 MHz clock
   SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN);
+
+  // create config struct for LcdDriver
   LcdConfig lcdConfig;
 
+  /* Configure the pins that will be used by the lcd driver */
   // B6
   lcdConfig.backLightPin[PIN_DESC_CLOCK_INDEX] = SYSCTL_PERIPH_GPIOB;
   lcdConfig.backLightPin[PIN_DESC_PORT_INDEX]  = GPIO_PORTB_BASE;
   lcdConfig.backLightPin[PIN_DESC_PIN_INDEX]   = GPIO_PIN_6;
+  lcdConfig.useBacklight                       = true;
 
   // B7 to RS
   lcdConfig.regSelectPin[PIN_DESC_CLOCK_INDEX] = SYSCTL_PERIPH_GPIOB;
