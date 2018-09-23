@@ -20,7 +20,7 @@ The project was written mainly for my personal usage so there was more hardcodin
 
 There is doxygen docs of the LcdDriver class here:
 
-[]()
+[Doxygen Docs](https://rawgit.com/khoitd1997/Lcd_Driver/master/docs/html/index.html)
 
 Check TivaWare documents(included with the full TivaWare) for other stuffs
 
@@ -47,12 +47,17 @@ Another note is that if you haven't, you should increase the stacksize allowed b
 - **Tivaware_Dep/**: This is the necessary stuffs pulled from TivaWare, defining pins used for the LCD needs macro from this folder
 - **tiva_utils/**: general utils stuffs like bit manipulations macros
 - **general_timer/**: this is a utility class used for timing various things, it uses wide timer 0 of the TivaC for timing purposes, the accuracy is probably in the range of 500 uS
+- **docs/**: contain documentation for the LcdDriver class
 - **src/**: this is where the lcd driver code resides
     - lcd_driver.cpp: the main functions of the LcdDriver class is defined here
     - lcd_driver.hpp: header file declaring the LcdDriver class
     - lcd_utils.cpp: defining utils functions of the LcdDriver class
     - main.cpp: serve as an example for how to use the LcdDriver class
     - lcd_include.hpp: contain timing information, commands and other constants and macros about the LCD
+
+## Example
+
+For examples of most of the features, check the main.cpp file in the src dir
 
 ## Adding and Using Custom Character
 
@@ -61,6 +66,10 @@ While most of the projects are documented in doxygen, adding custom character is
 Then in your code:
 
 ```cpp
+LcdConfig lcdConfig; // create config struct
+
+// ... edit the config struct
+
 // creating and preparing the driver
 auto lcdDriver = LcdDriver(lcdConfig);
 lcdDriver.init();
