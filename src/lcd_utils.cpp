@@ -84,7 +84,7 @@ void LcdDriver::pinPadConfig(const uint32_t pinDesc[PIN_DESCRIPTION_LEN]) {
 }
 
 /* command helper */
-uint8_t LcdDriver::createEntryModeCommand(const bool& cursorRightDir,
+uint8_t LcdDriver::entryModeCommandCreate(const bool& cursorRightDir,
                                           const bool& displayShiftEnabled) {
   uint8_t result = 0;
   bit_set(result, BIT(2));
@@ -92,7 +92,7 @@ uint8_t LcdDriver::createEntryModeCommand(const bool& cursorRightDir,
   displayShiftEnabled ? bit_set(result, BIT(0)) : 0;
   return result;
 }
-uint8_t LcdDriver::createDisplayCommand(const bool& displayOn,
+uint8_t LcdDriver::displayCommandCreate(const bool& displayOn,
                                         const bool& cursorOn,
                                         const bool& isCursorBlink) {
   uint8_t result = 0;
@@ -102,7 +102,7 @@ uint8_t LcdDriver::createDisplayCommand(const bool& displayOn,
   isCursorBlink ? bit_set(result, BIT(0)) : 0;
   return result;
 }
-uint8_t LcdDriver::createFunctionSetCommand(const bool& is8BitDataLen,
+uint8_t LcdDriver::functionSetCommandCreate(const bool& is8BitDataLen,
                                             const bool& is2Lines,
                                             const bool& is5x10Font) {
   uint8_t result = 0;
@@ -113,7 +113,7 @@ uint8_t LcdDriver::createFunctionSetCommand(const bool& is8BitDataLen,
   return result;
 }
 
-uint8_t LcdDriver::createCursorDisplayShiftCommand(const bool& isShiftDisplay,
+uint8_t LcdDriver::cursorDisplayShiftCommandCreate(const bool& isShiftDisplay,
                                                    const bool& isRight) {
   uint8_t result = 0;
   bit_set(result, BIT(4));
@@ -181,6 +181,19 @@ void LcdDriver::parallelDataRead(const bool&     isDataReg,
   }
 
   comStop();
+}
+
+void LcdDriver::dataWrite4Bit(const uint32_t& dataToWrite, const bool& stopAfterWrite) {
+  comSetup(false, false);
+  for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
+    pinWrite(_lcdConfig.parallelPinList[pin],
+             bit_get(dataToWrite >> ((4 == TOTAL_PARALLEL_PIN) ? 4 : 0), BIT(pin)));
+  }
+  if (stopAfterWrite) {
+    comStop();
+  } else {
+    comMaintain(false);
+  }
 }
 
 }  // namespace lcddriver

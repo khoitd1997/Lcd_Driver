@@ -17,6 +17,7 @@
 using namespace lcddriver;
 
 int main(void) {
+  // 80 MHz clock
   SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN);
   LcdConfig lcdConfig;
 
@@ -60,14 +61,26 @@ int main(void) {
   lcdConfig.parallelPinList[3][PIN_DESC_PORT_INDEX]  = GPIO_PORTD_BASE;
   lcdConfig.parallelPinList[3][PIN_DESC_PIN_INDEX]   = GPIO_PIN_6;
 
+  // create and itialize lcd driver class
   auto lcdDriver = LcdDriver(lcdConfig);
   lcdDriver.init();
   lcdDriver.enable();
-  // lcdDriver.displayWrite("Nice\nNewLine");
-  // lcdDriver.cursorPositionChange(15, 0);
+
+  // get timer with millisecond scale
+  auto generalTimer = GeneralTimer(UNIT_MILLISEC);
+
+  // create character pattern
+  uint8_t charPattern0[] = {0b11111, 0b11000, 0b10100, 0b10111, 0b10101, 0b10101, 0b10101, 0b11111};
+  uint8_t charPattern1[] = {0b10000, 0b01111, 0b01001, 0b01001, 0b01001, 0b01001, 0b01001, 0b01001};
+  uint8_t charPattern2[] = {0b10000, 0b01000, 0b01011, 0b01110, 0b01010, 0b00010, 0b00010, 0b00010};
+  lcdDriver.newCustomCharAdd(charPattern0, 0);
+  lcdDriver.newCustomCharAdd(charPattern1, 1);
+  lcdDriver.newCustomCharAdd(charPattern2, 2);
 
   for (;;) {
-    // for now just loop
+    lcdDriver.displayWrite("`0`1`2");
+    lcdDriver.displayAppend("\nA string");
+    generalTimer.wait(2000);
   }
   return 0;
 }

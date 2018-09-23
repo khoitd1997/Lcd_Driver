@@ -54,26 +54,25 @@ class LcdDriver {
   void registerSelect(const bool &isDataReg);
   void configWrite(void);
   void comSwitch(const bool &iscomEnabled);
+  void dataWrite4Bit(const uint32_t &dataToWrite, const bool &stopAfterWrite);
   void comModeSwitch(const bool &isReadMode);
-  void startupSeqWrite(void);
 
   // TODO: rename funcs
   // command related
-  uint8_t createEntryModeCommand(const bool &cursorRightDir, const bool &displayShiftEnabled);
-  uint8_t createDisplayCommand(const bool &displayOn,
+  uint8_t entryModeCommandCreate(const bool &cursorRightDir, const bool &displayShiftEnabled);
+  uint8_t displayCommandCreate(const bool &displayOn,
                                const bool &cursorOn,
                                const bool &isCursorBlink);
-  uint8_t createFunctionSetCommand(const bool &is8BitDataLen,
+  uint8_t functionSetCommandCreate(const bool &is8BitDataLen,
                                    const bool &is2Lines,
                                    const bool &is5x10Font);
-  uint8_t createCursorDisplayShiftCommand(const bool &isShiftDisplay, const bool &isRight);
+  uint8_t cursorDisplayShiftCommandCreate(const bool &isShiftDisplay, const bool &isRight);
 
-  void    beginSeqWrite(void);
-  bool    isBusy(void);
-  uint8_t getAddrCounter(void);
+  bool    lcdIsBusy(void);
+  uint8_t addrCounterGet(void);
 
   // ram stuffs
-  void    changeAddrCounter(const uint8_t &addr, const bool &isDataRam);
+  void    addrCounterChange(const uint8_t &addr, const bool &isDataRam);
   uint8_t instructionDataRead(void);
   void    ramDataWrite(const uint8_t *data, const uint32_t dataLen, const bool &isTextMode);
   void    ramDataRead(uint8_t *       returnData,
@@ -91,7 +90,7 @@ class LcdDriver {
   void displayAppend(const char *dataToAppend);
 
   // custom char
-  void addNewCustomChar(const uint8_t   charPattern[CUSTOM_CHAR_PATTERN_LEN],
+  void newCustomCharAdd(const uint8_t   charPattern[CUSTOM_CHAR_PATTERN_LEN],
                         const uint32_t &customCharSlot);
 
   // cursor and others

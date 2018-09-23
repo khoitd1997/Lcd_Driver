@@ -9,7 +9,7 @@ Features:
 - Display supports autoscroll
 - Reading data from both data ram and character generator ram as well as lcd status
 - Check display status
-- Adding new custom characters to character generator ROM, the ${custom_pattern_num} format is used when displaying custom char, example below
+- Adding new custom characters to character generator ROM, the `{custom_pattern_num} format is used when displaying custom char, example below
 - Control backLED(provided that you have a relay hooked up to it)
 
 ## Notes about Usability
@@ -67,10 +67,10 @@ lcdDriver.enable();
 
 // paste the array you got from the website above here
 uint8_t charPattern2[] = {0b10000, 0b01000, 0b01011, 0b01110, 0b01010, 0b00010, 0b00010, 0b00010};
-lcdDriver.addNewCustomChar(charPattern2, 2); // uses slot 2 for the pattern, you are set to use after this
+lcdDriver.newCustomCharAdd(charPattern2, 2); // uses slot 2 for the pattern, you are set to use after this
 
 // using the custom pattern
-lcdDriver.displayWrite("Pattern: $2"); // $2 will be replaced with the pattern you just added on the LCD
+lcdDriver.displayWrite("Pattern: `2"); // `2 will be replaced with the pattern you just added on the LCD
 
 // the pattern should be printed on the lcd after this
 ```

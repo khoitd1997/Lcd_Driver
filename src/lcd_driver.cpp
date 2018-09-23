@@ -31,7 +31,7 @@ namespace lcddriver {
 
 /* Timing Variable */
 
-#define COM_TIME_SCALER 10000
+#define COM_TIME_SCALER 7000
 
 // waiting phase time
 #define LCD_WARM_UP_TIME_NANOSEC 49000000
@@ -84,7 +84,7 @@ LcdDriver::LcdDriver(const LcdConfig& lcdconfig)
       _totalBitPerPin(8 / TOTAL_PARALLEL_PIN) {}
 
 void LcdDriver::init(void) {
-  // initialize clock and set pin types
+  // check, initialize clock, and configure pins
   pinDescCheck(_lcdConfig.regSelectPin);
   enableClockPeripheral(_lcdConfig.regSelectPin[PIN_DESC_CLOCK_INDEX]);
   pinModeSwitch(_lcdConfig.regSelectPin, false);
@@ -109,6 +109,8 @@ void LcdDriver::init(void) {
     pinDescCheck(_lcdConfig.parallelPinList[pin]);
     enableClockPeripheral(_lcdConfig.parallelPinList[pin][PIN_DESC_CLOCK_INDEX]);
   }
+
+  // switch all pins to input mode
   parallelModeSwitch(false);
 }
 
@@ -151,107 +153,30 @@ void LcdDriver::comMaintain(const bool& isReadMode) {
   _generalTimer.wait(waitTime);
 }
 
-void LcdDriver::beginSeqWrite(void) {
-  uint32_t startupCommand = LCD_BEGIN_COMMAND;
-  if (4 == TOTAL_PARALLEL_PIN) { startupCommand >>= 4; }
-
-  comSetup(false, false);
-  for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
-    pinWrite(_lcdConfig.parallelPinList[pin], bit_get(startupCommand, BIT(pin)));
-  }
-  comMaintain(false);
-}
-
 void LcdDriver::configWrite(void) {
   uint8_t configData[5] = {0};
-  configData[0]         = createFunctionSetCommand(false, true, false);
-  configData[1]         = createDisplayCommand(true, true, true);
+  configData[0]         = functionSetCommandCreate(false, true, false);
+  configData[1]         = displayCommandCreate(true, true, true);
   configData[2]         = LCD_CLEAR_COMMAND;
-  configData[3]         = createEntryModeCommand(true, false);
+  configData[3]         = entryModeCommandCreate(true, false);
 
-  beginSeqWrite();
-
+  dataWrite4Bit(LCD_BEGIN_COMMAND, false);
   parallelDataWrite(configData, 4, false);
 }
 
 void LcdDriver::enable(void) {
   _generalTimer.wait(LCD_WARM_UP_TIME_NANOSEC);
 
-  startupSeqWrite();
+  dataWrite4Bit(LCD_STARTUP_COMMAND, true);
 
   _generalTimer.wait(LCD_FIRST_INIT_TIME_NANOSEC);
 
-  startupSeqWrite();
+  dataWrite4Bit(LCD_STARTUP_COMMAND, true);
   _generalTimer.wait(LCD_SECOND_INIT_TIME_NANOSEC);
 
-  startupSeqWrite();
+  dataWrite4Bit(LCD_STARTUP_COMMAND, true);
   configWrite();
-
-  // Enable the GPIO Peripheral used by the UART.
-  ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
-
-  // Enable UART0
-  ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
-
-  // Configure GPIO Pins for UART mode.
-  ROM_GPIOPinConfigure(GPIO_PA0_U0RX);
-  ROM_GPIOPinConfigure(GPIO_PA1_U0TX);
-  ROM_GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
-
-  // Use the internal 16MHz oscillator as the UART clock source.
-  UARTClockSourceSet(UART0_BASE, UART_CLOCK_PIOSC);
-
-  // Initialize the UART for console I/O.
-  UARTStdioConfig(0, 115200, 16000000);
-  // displayWrite("01234");
-  uint8_t returnData[8]  = {0};
-  uint8_t charPattern0[] = {0b11111, 0b11000, 0b10100, 0b10111, 0b10101, 0b10101, 0b10101, 0b11111};
-  uint8_t charPattern1[] = {0b10000, 0b01111, 0b01001, 0b01001, 0b01001, 0b01001, 0b01001, 0b01001};
-  uint8_t charPattern2[] = {0b10000, 0b01000, 0b01011, 0b01110, 0b01010, 0b00010, 0b00010, 0b00010};
-
-  for (;;) {
-    // cursorPositionChange(0, 0);
-    // ramDataWrite(ramData, 1);
-
-    // displayWrite("123");
-    // displayAppend("456");
-    // uint32_t startComamndList[] = {LCD_CLEAR_COMMAND};
-    // parallelDataWrite(startComamndList, 1, false);
-
-    // cursorPositionChange(15, 1);
-
-    addNewCustomChar(charPattern0, 0);
-    addNewCustomChar(charPattern1, 1);
-    addNewCustomChar(charPattern2, 2);
-
-    displayWrite("$0$1$2");
-
-    // changeAddrCounter(0, false);
-    // UARTprintf("Instr is %d\n", instructionDataRead());
-    // UARTprintf("0: %d, 1: %d, 2: %d, 3: %d, 4: %d, 5: %d, 6: %d, 7: %d\n",
-    //            returnData[0],
-    //            returnData[1],
-    //            returnData[2],
-    //            returnData[3],
-    //            returnData[4],
-    //            returnData[5],
-    //            returnData[6],
-    //            returnData[7]);
-    _generalTimer.wait(500000000);
-  }
 }
-
-void LcdDriver::startupSeqWrite(void) {
-  uint32_t startupCommand = LCD_STARTUP_COMMAND;
-  if (4 == TOTAL_PARALLEL_PIN) { startupCommand >>= 4; }
-
-  comSetup(false, false);
-  for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
-    pinWrite(_lcdConfig.parallelPinList[pin], bit_get(startupCommand, BIT(pin)));
-  }
-  comStop();
-}
-
 /* Led Stuff */
 
 void LcdDriver::backLedSwitch(const bool& isBackLedOn) {
@@ -269,7 +194,7 @@ void LcdDriver::displayWrite(const char* dataToWrite) {
 
 void LcdDriver::cursorPositionChange(const uint8_t& cursorX, const uint8_t& cursorY) {
   assert(cursorX <= MAX_LCD_X && cursorY <= MAX_LCD_Y);
-  changeAddrCounter(cursorY << 6 | cursorX, true);
+  addrCounterChange(cursorY << 6 | cursorX, true);
 }
 
 void LcdDriver::displayAppend(const char* dataToAppend) {
@@ -279,16 +204,16 @@ void LcdDriver::displayAppend(const char* dataToAppend) {
   ramDataWrite((uint8_t*)dataToAppend, strlen(dataToAppend), true);
 }
 
-void LcdDriver::addNewCustomChar(const uint8_t   charPattern[CUSTOM_CHAR_PATTERN_LEN],
+void LcdDriver::newCustomCharAdd(const uint8_t   charPattern[CUSTOM_CHAR_PATTERN_LEN],
                                  const uint32_t& customCharSlot) {
   assert(customCharSlot < MAX_CUSTOM_PATTERN);
   assert(charPattern);
 
-  changeAddrCounter(customCharSlot * LCD_MEMUSED_PER_x8_CHAR, false);
+  addrCounterChange(customCharSlot * LCD_MEMUSED_PER_x8_CHAR, false);
   ramDataWrite(charPattern, CUSTOM_CHAR_PATTERN_LEN, false);
 }
 
-void LcdDriver::changeAddrCounter(const uint8_t& addr, const bool& isDataRam) {
+void LcdDriver::addrCounterChange(const uint8_t& addr, const bool& isDataRam) {
   parallelDataWriteSingle(addr | (isDataRam ? BIT(7) : BIT(6)), false);
 }
 
@@ -307,7 +232,7 @@ void LcdDriver::ramDataWrite(const uint8_t* data, const uint32_t dataLen, const 
           parallelDataWriteSingle(data[strIndex], true);
         }
         // parse special character
-      } else if (('$' == data[strIndex]) && (strIndex < dataLen - 1) &&
+      } else if (('`' == data[strIndex]) && (strIndex < dataLen - 1) &&
                  isdigit(data[strIndex + 1]) && (data[strIndex + 1] - '0' < MAX_CUSTOM_PATTERN)) {
         parallelDataWriteSingle(data[strIndex + 1] - '0', true);
         ++strIndex;
@@ -320,11 +245,11 @@ void LcdDriver::ramDataWrite(const uint8_t* data, const uint32_t dataLen, const 
   }
 }
 
-uint8_t LcdDriver::getAddrCounter(void) {
+uint8_t LcdDriver::addrCounterGet(void) {
   return bit_get(instructionDataRead(), LCD_ADDR_COUNTER_MASK);
 }
 
-bool LcdDriver::isBusy(void) { return (bool)bit_get(instructionDataRead(), BIT(LCD_BUSY_BIT)); }
+bool LcdDriver::lcdIsBusy(void) { return (bool)bit_get(instructionDataRead(), BIT(LCD_BUSY_BIT)); }
 
 uint8_t LcdDriver::instructionDataRead(void) {
   uint8_t dataBuf[1] = {0};
@@ -332,7 +257,6 @@ uint8_t LcdDriver::instructionDataRead(void) {
   return dataBuf[0];
 }
 
-// bit 6 or 7 will be set based on ram types
 void LcdDriver::ramDataRead(uint8_t*        returnData,
                             const uint32_t& totalDataRead,
                             const uint8_t&  startingRamAddr,
@@ -341,7 +265,7 @@ void LcdDriver::ramDataRead(uint8_t*        returnData,
   assert(totalDataRead > 0);
 
   // set address b4 read
-  changeAddrCounter(startingRamAddr, isDataRam);
+  addrCounterChange(startingRamAddr, isDataRam);
 
   parallelDataRead(true, returnData, totalDataRead);
 }
