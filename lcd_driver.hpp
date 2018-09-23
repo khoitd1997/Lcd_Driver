@@ -5,11 +5,7 @@
 
 #include "general_timer/general_timer.hpp"
 
-// use analog out for brightness control, on Vo
-// need data structure to store list of commands
-// RAM used for storing display data
-// support for both 8 pins and 4 pins
-// support for CG RAM for custom char
+namespace lcddriver {
 
 static const uint32_t LCD_MAX_PRINT_STRING = 32;
 
@@ -31,11 +27,12 @@ typedef struct {
 
 class LcdDriver {
  private:
+  uint32_t     _totalBitPerPin;
   LcdConfig    _lcdConfig;
   GeneralTimer _generalTimer;
 
   // parallel data handling
-  uint32_t parallelDataRead(const bool &isDataReg, const bool &isReadMode);
+  void parallelDataRead(const bool &isDataReg, uint8_t *readDataBuf, const uint32_t &totalReadData);
   void parallelDataWrite(const uint32_t *dataList, const uint32_t &dataLen, const bool &isDataReg);
   void parallelModeSwitch(const bool &isInput);
 
@@ -44,11 +41,12 @@ class LcdDriver {
   void pinWrite(const uint32_t pinDesc[PIN_DESCRIPTION_LEN], const bool &output);
   bool pinRead(const uint32_t pinDesc[PIN_DESCRIPTION_LEN]);
   void pinPadConfig(const uint32_t pinDesc[PIN_DESCRIPTION_LEN]);
+  void pinDescCheck(uint32_t pinDesc[PIN_DESCRIPTION_LEN]);
 
   // com related
   void comSetup(const bool &isDataReg, const bool &isReadMode);
-  void comStop(const bool &isDataReg, const bool &isReadMode);
-  void comMaintain(const bool &isDataReg, const bool &isReadMode);
+  void comStop(void);
+  void comMaintain(const bool &isReadMode);
   void registerSelect(const bool &isDataReg);
   void configWrite(void);
   void comSwitch(const bool &iscomEnabled);
@@ -65,12 +63,16 @@ class LcdDriver {
                                     const bool &is5x10Font);
   uint32_t createCursorDisplayShiftCommand(const bool &isShiftDisplay, const bool &isRight);
 
-  void beginSeqWrite(void);
-  bool isBusy(void);
+  void    beginSeqWrite(void);
+  bool    isBusy(void);
+  uint8_t getAddrCounter(void);
 
   // ram stuffs
-  void ramDataWrite(const char *data);
-  void ramDataRead(uint8_t *returnData);
+  uint8_t instructionDataRead(void);
+  void    ramDataWrite(const char *data);
+  void    ramDataRead(uint8_t *       returnData,
+                      const uint32_t &totalDataRead,
+                      const uint8_t & startingRamAddr);
 
  public:
   LcdDriver(const LcdConfig &lcdConfig);
@@ -90,5 +92,5 @@ class LcdDriver {
   // back led
   void backLedSwitch(const bool &isBackLedOn);  // would need relay
 };
-
+}  // namespace lcddriver
 #endif

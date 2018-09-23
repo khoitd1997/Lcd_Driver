@@ -9,6 +9,7 @@ GEN_CMDS__FLAG :=
 
 ORDERED_OBJS += \
 "./lcd_driver.obj" \
+"./lcd_utils.obj" \
 "./main.obj" \
 "./tm4c123gh6pm_startup_ccs.obj" \
 "./Tivaware_Dep/driverlib/epi_workaround_ccs.obj" \
@@ -180,9 +181,9 @@ lcd_tiva.hex: $(EXE_OUTPUTS)
 # Other Targets
 clean:
 	-$(RM) $(BIN_OUTPUTS__QUOTED)$(EXE_OUTPUTS__QUOTED)
-	-$(RM) "lcd_driver.obj" "main.obj" "tm4c123gh6pm_startup_ccs.obj" "Tivaware_Dep/driverlib/epi_workaround_ccs.obj" "Tivaware_Dep/drivers/buttons.obj" "Tivaware_Dep/drivers/rgb.obj" "Tivaware_Dep/utils/softuart.obj" "Tivaware_Dep/utils/uartstdio.obj" "Tivaware_Dep/utils/ustdlib.obj" "general_timer/general_timer.obj" 
+	-$(RM) "lcd_driver.obj" "lcd_utils.obj" "main.obj" "tm4c123gh6pm_startup_ccs.obj" "Tivaware_Dep/driverlib/epi_workaround_ccs.obj" "Tivaware_Dep/drivers/buttons.obj" "Tivaware_Dep/drivers/rgb.obj" "Tivaware_Dep/utils/softuart.obj" "Tivaware_Dep/utils/uartstdio.obj" "Tivaware_Dep/utils/ustdlib.obj" "general_timer/general_timer.obj" 
 	-$(RM) "tm4c123gh6pm_startup_ccs.d" "Tivaware_Dep/drivers/buttons.d" "Tivaware_Dep/drivers/rgb.d" "Tivaware_Dep/utils/softuart.d" "Tivaware_Dep/utils/uartstdio.d" "Tivaware_Dep/utils/ustdlib.d" 
-	-$(RM) "lcd_driver.d" "main.d" "general_timer/general_timer.d" 
+	-$(RM) "lcd_driver.d" "lcd_utils.d" "main.d" "general_timer/general_timer.d" 
 	-$(RM) "Tivaware_Dep/driverlib/epi_workaround_ccs.d" 
 	-@echo 'Finished clean'
 	-@echo ' '

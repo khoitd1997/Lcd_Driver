@@ -10,8 +10,6 @@
 #include "driverlib/pin_map.h"
 #include "driverlib/rom.h"
 #include "driverlib/sysctl.h"
-#include "driverlib/uart.h"
-#include "utils/uartstdio.h"
 
 // hardware
 #include "inc/hw_ints.h"
@@ -21,6 +19,12 @@
 // application
 #include "general_timer/general_timer.hpp"
 #include "tiva_utils/bit_manipulation.h"
+
+// debug
+#include "driverlib/uart.h"
+#include "utils/uartstdio.h"
+
+namespace lcddriver {
 
 #define MAX_LCD_X 15  // limited by the horizontal length of the LCD
 #define MAX_LCD_Y 1   // limited by the vertical len of LCD
@@ -51,8 +55,10 @@
 #define TIVA_MAX_RISE_TIME 13
 #define TIVA_MAX_FALSE_TIME 14
 
-#define LCD_DATA_WAIT_NANOSEC \
+#define LCD_DATA_WRITE_WAIT_NANOSEC \
   TIVA_MAX_RISE_TIME + LCD_PULSE_WIDTH_NANOSEC - (LCD_DATA_SETUP_TIME_NANOSEC)
+
+#define LCD_DATA_READ_WAIT_NANOSEC 800  // based on datasheet
 
 #define LCD_STARTUP_COMMAND 0b110000
 #define LCD_BEGIN_COMMAND 0b100000
@@ -60,8 +66,8 @@
 #define LCD_RETURN_HOME_COMMAND 0b10
 #define LCD_JUMP_LINE_COMMAND 0xc0
 
-#define LCD_CHAR_A 0b01000001
-#define LCD_CHAR_0 0b00110000
+#define LCD_BUSY_BIT 7
+#define LCD_ADDR_COUNTER_MASK 0x7f
 
 static void enableClockPeripheral(const uint32_t& clockMask) {
   SysCtlPeripheralEnable(clockMask);
@@ -70,46 +76,10 @@ static void enableClockPeripheral(const uint32_t& clockMask) {
   }
 }
 
-static void pinDescCheck(uint32_t pinDesc[PIN_DESCRIPTION_LEN]) {
-  const uint32_t clockFlag = pinDesc[PIN_DESC_CLOCK_INDEX];
-  const uint32_t portFlag  = pinDesc[PIN_DESC_PORT_INDEX];
-  const uint32_t pinFlag   = pinDesc[PIN_DESC_PIN_INDEX];
-
-  assert((clockFlag == SYSCTL_PERIPH_GPIOB) || (clockFlag == SYSCTL_PERIPH_GPIOA) ||
-         (clockFlag == SYSCTL_PERIPH_GPIOC) || (clockFlag == SYSCTL_PERIPH_GPIOD) ||
-         (clockFlag == SYSCTL_PERIPH_GPIOE) || (clockFlag == SYSCTL_PERIPH_GPIOF));
-
-  assert((portFlag == GPIO_PORTA_BASE) || (portFlag == GPIO_PORTB_BASE) ||
-         (portFlag == GPIO_PORTC_BASE) || (portFlag == GPIO_PORTD_BASE) ||
-         (portFlag == GPIO_PORTE_BASE) || (portFlag == GPIO_PORTF_BASE));
-
-  assert((pinFlag == GPIO_PIN_0) || (pinFlag == GPIO_PIN_1) || (pinFlag == GPIO_PIN_2) ||
-         (pinFlag == GPIO_PIN_5) || (pinFlag == GPIO_PIN_3) || (pinFlag == GPIO_PIN_6) ||
-         (pinFlag == GPIO_PIN_4) || (pinFlag == GPIO_PIN_7));
-
-  // check for specially allocated pins that should not be used
-  assert(!(GPIO_PIN_0 == pinFlag && GPIO_PORTA_BASE == portFlag) &&
-         !(GPIO_PIN_1 == pinFlag && GPIO_PORTA_BASE == portFlag) &&
-         !(GPIO_PIN_5 == pinFlag && GPIO_PORTA_BASE == portFlag) &&
-         !(GPIO_PIN_4 == pinFlag && GPIO_PORTA_BASE == portFlag) &&
-         !(GPIO_PIN_3 == pinFlag && GPIO_PORTA_BASE == portFlag) &&
-         !(GPIO_PIN_2 == pinFlag && GPIO_PORTA_BASE == portFlag) &&
-
-         !(GPIO_PIN_3 == pinFlag && GPIO_PORTB_BASE == portFlag) &&
-         !(GPIO_PIN_2 == pinFlag && GPIO_PORTB_BASE == portFlag) &&
-
-         !(GPIO_PIN_3 == pinFlag && GPIO_PORTC_BASE == portFlag) &&
-         !(GPIO_PIN_2 == pinFlag && GPIO_PORTC_BASE == portFlag) &&
-         !(GPIO_PIN_1 == pinFlag && GPIO_PORTC_BASE == portFlag) &&
-         !(GPIO_PIN_0 == pinFlag && GPIO_PORTC_BASE == portFlag) &&
-
-         !(GPIO_PIN_7 == pinFlag && GPIO_PORTD_BASE == portFlag) &&
-
-         !(GPIO_PIN_0 == pinFlag && GPIO_PORTF_BASE == portFlag));
-}
-
 LcdDriver::LcdDriver(const LcdConfig& lcdconfig)
-    : _lcdConfig(lcdconfig), _generalTimer(GeneralTimer(UNIT_NANOSEC)) {}
+    : _lcdConfig(lcdconfig),
+      _generalTimer(GeneralTimer(UNIT_NANOSEC)),
+      _totalBitPerPin(8 / TOTAL_PARALLEL_PIN) {}
 
 void LcdDriver::init(void) {
   // initialize clock and set pin types
@@ -140,76 +110,6 @@ void LcdDriver::init(void) {
   parallelModeSwitch(false);
 }
 
-/* Pin stuffs */
-
-void LcdDriver::pinModeSwitch(const uint32_t pinDesc[PIN_DESCRIPTION_LEN], const bool& isInput) {
-  if (isInput) {
-    GPIOPinTypeGPIOInput(pinDesc[PIN_DESC_PORT_INDEX], pinDesc[PIN_DESC_PIN_INDEX]);
-  } else {
-    GPIOPinTypeGPIOOutput(pinDesc[PIN_DESC_PORT_INDEX], pinDesc[PIN_DESC_PIN_INDEX]);
-  }
-}
-
-void LcdDriver::pinWrite(const uint32_t pinDesc[PIN_DESCRIPTION_LEN], const bool& output) {
-  uint8_t pinOutput = output ? pinDesc[PIN_DESC_PIN_INDEX] : 0;
-  GPIOPinWrite(pinDesc[PIN_DESC_PORT_INDEX], pinDesc[PIN_DESC_PIN_INDEX], pinOutput);
-}
-
-bool LcdDriver::pinRead(const uint32_t pinDesc[PIN_DESCRIPTION_LEN]) {
-  return GPIOPinRead(pinDesc[PIN_DESC_PORT_INDEX], pinDesc[PIN_DESC_PIN_INDEX]) ? true : false;
-}
-
-void LcdDriver::pinPadConfig(const uint32_t pinDesc[PIN_DESCRIPTION_LEN]) {
-  // 8 mA drive strength with slew rate control to ensure rise/fall time is in specs
-  GPIOPadConfigSet(pinDesc[PIN_DESC_PORT_INDEX],
-                   pinDesc[PIN_DESC_PIN_INDEX],
-                   GPIO_STRENGTH_8MA,
-                   GPIO_PIN_TYPE_STD);
-}
-
-/* Parallel Stuff */
-void LcdDriver::parallelModeSwitch(const bool& isInput) {
-  for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
-    pinModeSwitch(_lcdConfig.parallelPinList[pin], isInput);
-  }
-}
-
-void LcdDriver::parallelDataWrite(const uint32_t* dataList,
-                                  const uint32_t& dataLen,
-                                  const bool&     isDataReg) {
-  comSetup(isDataReg, false);
-  uint32_t totalBitPerPin = 8 / TOTAL_PARALLEL_PIN;
-
-  for (uint32_t dataIndex = 0; dataIndex < dataLen - 1; ++dataIndex) {
-    for (uint32_t bitIndex = totalBitPerPin - 1; bitIndex != -1; --bitIndex) {
-      for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
-        pinWrite(_lcdConfig.parallelPinList[pin],
-                 bit_get(dataList[dataIndex] >> 4 * bitIndex, BIT(pin)));
-      }
-      comMaintain(isDataReg, false);
-    }
-  }
-
-  for (uint32_t bitIndex = totalBitPerPin - 1; bitIndex != -1; --bitIndex) {
-    for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
-      pinWrite(_lcdConfig.parallelPinList[pin],
-               bit_get(dataList[dataLen - 1] >> 4 * bitIndex, BIT(pin)));
-    }
-    if (0 != bitIndex) { comMaintain(isDataReg, false); }
-  }
-  comStop(isDataReg, false);
-}
-
-uint32_t LcdDriver::parallelDataRead(const bool& isDataReg, const bool& isReadMode) {
-  comSetup(isDataReg, isReadMode);
-  uint32_t result = 0;
-  for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
-    if (pinRead(_lcdConfig.parallelPinList[pin])) { bit_set(result, BIT(pin)); }
-  }
-
-  return result;
-}
-
 /* com Stuff*/
 
 void LcdDriver::registerSelect(const bool& isDataReg) {
@@ -225,26 +125,28 @@ void LcdDriver::comModeSwitch(const bool& isReadMode) {
 }
 
 void LcdDriver::comSetup(const bool& isDataReg, const bool& isReadMode) {
+  const uint32_t waitTime = isReadMode ? LCD_DATA_READ_WAIT_NANOSEC : LCD_DATA_WRITE_WAIT_NANOSEC;
   // setup so that the lcd knows that we want to talk with it
   registerSelect(isDataReg);
   comModeSwitch(isReadMode);
   _generalTimer.wait(LCD_ADDR_SETUP_TIME_NANOSEC - TIVA_MAX_RISE_TIME);
   comSwitch(true);
-  _generalTimer.wait(LCD_DATA_WAIT_NANOSEC);
+  _generalTimer.wait(waitTime);
 }
 
-void LcdDriver::comStop(const bool& isDataReg, const bool& isReadMode) {
+void LcdDriver::comStop(void) {
   _generalTimer.wait(LCD_DATA_SETUP_TIME_NANOSEC);
   comSwitch(false);
   _generalTimer.wait(LCD_DATA_HOLD_TIME_NANOSEC + TIVA_MAX_FALSE_TIME);
 }
 
-void LcdDriver::comMaintain(const bool& isDataReg, const bool& isReadMode) {
+void LcdDriver::comMaintain(const bool& isReadMode) {
+  const uint32_t waitTime = isReadMode ? LCD_DATA_READ_WAIT_NANOSEC : LCD_DATA_WRITE_WAIT_NANOSEC;
   _generalTimer.wait(LCD_DATA_SETUP_TIME_NANOSEC);
   comSwitch(false);
-  _generalTimer.wait(LCD_MIN_CYCLE_TIME_NANOSEC - LCD_DATA_WAIT_NANOSEC);
+  _generalTimer.wait(LCD_MIN_CYCLE_TIME_NANOSEC - LCD_DATA_WRITE_WAIT_NANOSEC);
   comSwitch(true);
-  _generalTimer.wait(LCD_DATA_WAIT_NANOSEC);
+  _generalTimer.wait(waitTime);
 }
 
 void LcdDriver::beginSeqWrite(void) {
@@ -255,7 +157,7 @@ void LcdDriver::beginSeqWrite(void) {
   for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
     pinWrite(_lcdConfig.parallelPinList[pin], bit_get(startupCommand, BIT(pin)));
   }
-  comMaintain(false, false);
+  comMaintain(false);
 }
 
 void LcdDriver::configWrite(void) {
@@ -282,6 +184,34 @@ void LcdDriver::enable(void) {
 
   startupSeqWrite();
   configWrite();
+
+  // Enable the GPIO Peripheral used by the UART.
+  ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+
+  // Enable UART0
+  ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+
+  // Configure GPIO Pins for UART mode.
+  ROM_GPIOPinConfigure(GPIO_PA0_U0RX);
+  ROM_GPIOPinConfigure(GPIO_PA1_U0TX);
+  ROM_GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+
+  // Use the internal 16MHz oscillator as the UART clock source.
+  UARTClockSourceSet(UART0_BASE, UART_CLOCK_PIOSC);
+
+  // Initialize the UART for console I/O.
+  UARTStdioConfig(0, 115200, 16000000);
+
+  for (;;) {
+    // displayWrite("Nacedes");
+    // uint32_t startComamndList[] = {LCD_CLEAR_COMMAND};
+    // parallelDataWrite(startComamndList, 1, false);
+
+    cursorPositionChange(3, 1);
+
+    UARTprintf("Instr Read: %d\n", instructionDataRead());
+    // _generalTimer.wait(500000);
+  }
 }
 
 void LcdDriver::startupSeqWrite(void) {
@@ -292,54 +222,13 @@ void LcdDriver::startupSeqWrite(void) {
   for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
     pinWrite(_lcdConfig.parallelPinList[pin], bit_get(startupCommand, BIT(pin)));
   }
-  comStop(false, false);
+  comStop();
 }
 
 /* Led Stuff */
 
 void LcdDriver::backLedSwitch(const bool& isBackLedOn) {
   pinWrite(_lcdConfig.backLightPin, isBackLedOn);
-}
-
-/* User Stuff */
-
-/* command helper */
-uint32_t LcdDriver::createEntryModeCommand(const bool& cursorRightDir,
-                                           const bool& displayShiftEnabled) {
-  uint32_t result = 0;
-  bit_set(result, BIT(2));
-  cursorRightDir ? bit_set(result, BIT(1)) : 0;
-  displayShiftEnabled ? bit_set(result, BIT(0)) : 0;
-  return result;
-}
-uint32_t LcdDriver::createDisplayCommand(const bool& displayOn,
-                                         const bool& cursorOn,
-                                         const bool& isCursorBlink) {
-  uint32_t result = 0;
-  bit_set(result, BIT(3));
-  displayOn ? bit_set(result, BIT(2)) : 0;
-  cursorOn ? bit_set(result, BIT(1)) : 0;
-  isCursorBlink ? bit_set(result, BIT(0)) : 0;
-  return result;
-}
-uint32_t LcdDriver::createFunctionSetCommand(const bool& is8BitDataLen,
-                                             const bool& is2Lines,
-                                             const bool& is5x10Font) {
-  uint32_t result = 0;
-  bit_set(result, BIT(5));
-  is8BitDataLen ? bit_set(result, BIT(4)) : 0;
-  is2Lines ? bit_set(result, BIT(3)) : 0;
-  is5x10Font ? bit_set(result, BIT(2)) : 0;
-  return result;
-}
-
-uint32_t LcdDriver::createCursorDisplayShiftCommand(const bool& isShiftDisplay,
-                                                    const bool& isRight) {
-  uint32_t result = 0;
-  bit_set(result, BIT(4));
-  isShiftDisplay ? bit_set(result, BIT(3)) : 0;
-  isRight ? bit_set(result, BIT(2)) : 0;
-  return result;
 }
 
 // content
@@ -359,8 +248,10 @@ void LcdDriver::cursorPositionChange(const uint32_t& cursorX, const uint32_t& cu
 }
 
 void LcdDriver::displayAppend(const char* dataToAppend) {}
+
 /* RAM stuffs */
 void LcdDriver::ramDataWrite(const char* data) {
+  assert(data);
   uint32_t dataList[1] = {0};
 
   for (uint32_t strIndex = 0; strIndex <= strlen(data); ++strIndex) {
@@ -379,4 +270,29 @@ void LcdDriver::ramDataWrite(const char* data) {
     }
   }
 }
-void ramDataRead(uint8_t* returnData) {}
+
+uint8_t LcdDriver::getAddrCounter(void) {
+  return bit_get(instructionDataRead(), LCD_ADDR_COUNTER_MASK);
+}
+
+bool LcdDriver::isBusy(void) { return (bool)bit_get(instructionDataRead(), BIT(LCD_BUSY_BIT)); }
+
+uint8_t LcdDriver::instructionDataRead(void) {
+  uint8_t dataBuf[1] = {0};
+  parallelDataRead(false, dataBuf, 1);
+  return dataBuf[0];
+}
+
+void LcdDriver::ramDataRead(uint8_t*        returnData,
+                            const uint32_t& totalDataRead,
+                            const uint8_t&  startingRamAddr) {
+  assert(returnData);
+  assert(totalDataRead > 0);
+
+  // set addr counter b4 read
+  uint32_t dataAddr[] = {startingRamAddr};
+  parallelDataWrite(dataAddr, 1, false);
+
+  parallelDataRead(true, returnData, totalDataRead);
+}
+}  // namespace lcddriver

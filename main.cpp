@@ -14,6 +14,8 @@
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
 
+using namespace lcddriver;
+
 int main(void) {
   SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN);
   LcdConfig lcdConfig;
@@ -62,7 +64,8 @@ int main(void) {
   lcdDriver.init();
   lcdDriver.enable();
   // lcdDriver.displayWrite("Nice\nNewLine");
-  lcdDriver.cursorPositionChange(15, 0);
+  // lcdDriver.cursorPositionChange(15, 0);
+
   for (;;) {
     // for now just loop
   }
