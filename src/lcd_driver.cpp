@@ -69,6 +69,8 @@ namespace lcddriver {
 #define LCD_BUSY_BIT 7
 #define LCD_ADDR_COUNTER_MASK 0x7f
 
+#define LCD_MEMUSED_PER_x8_CHAR 8
+
 static void enableClockPeripheral(const uint32_t& clockMask) {
   SysCtlPeripheralEnable(clockMask);
   while (!SysCtlPeripheralReady(clockMask)) {
@@ -202,23 +204,40 @@ void LcdDriver::enable(void) {
   // Initialize the UART for console I/O.
   UARTStdioConfig(0, 115200, 16000000);
   // displayWrite("01234");
-  uint8_t returnData[5] = {0};
+  uint8_t returnData[8]  = {0};
+  uint8_t charPattern0[] = {0b11111, 0b11000, 0b10100, 0b10111, 0b10101, 0b10101, 0b10101, 0b11111};
+  uint8_t charPattern1[] = {0b10000, 0b01111, 0b01001, 0b01001, 0b01001, 0b01001, 0b01001, 0b01001};
+  uint8_t charPattern2[] = {0b10000, 0b01000, 0b01011, 0b01110, 0b01010, 0b00010, 0b00010, 0b00010};
 
   for (;;) {
-    // displayWrite("313213");
+    // cursorPositionChange(0, 0);
+    // ramDataWrite(ramData, 1);
+
+    // displayWrite("123");
+    // displayAppend("456");
     // uint32_t startComamndList[] = {LCD_CLEAR_COMMAND};
     // parallelDataWrite(startComamndList, 1, false);
 
-    cursorPositionChange(15, 1);
+    // cursorPositionChange(15, 1);
 
-    // ramDataRead(returnData, 5, 0, true);
-    UARTprintf("0: %d, 1: %d, 2: %d, 3: %d, 4: %d\n",
-               returnData[0],
-               returnData[1],
-               returnData[2],
-               returnData[3],
-               returnData[4]);
-    _generalTimer.wait(5000000000);
+    addNewCustomChar(charPattern0, 0);
+    addNewCustomChar(charPattern1, 1);
+    addNewCustomChar(charPattern2, 2);
+
+    displayWrite("$0$1$2");
+
+    // changeAddrCounter(0, false);
+    // UARTprintf("Instr is %d\n", instructionDataRead());
+    // UARTprintf("0: %d, 1: %d, 2: %d, 3: %d, 4: %d, 5: %d, 6: %d, 7: %d\n",
+    //            returnData[0],
+    //            returnData[1],
+    //            returnData[2],
+    //            returnData[3],
+    //            returnData[4],
+    //            returnData[5],
+    //            returnData[6],
+    //            returnData[7]);
+    _generalTimer.wait(500000000);
   }
 }
 
@@ -245,7 +264,7 @@ void LcdDriver::displayWrite(const char* dataToWrite) {
   assert(LCD_MAX_PRINT_STRING >= strlen(dataToWrite));
 
   parallelDataWriteSingle(LCD_CLEAR_COMMAND, false);
-  ramDataWrite((uint8_t*)dataToWrite, strlen(dataToWrite));
+  ramDataWrite((uint8_t*)dataToWrite, strlen(dataToWrite), true);
 }
 
 void LcdDriver::cursorPositionChange(const uint8_t& cursorX, const uint8_t& cursorY) {
@@ -253,16 +272,20 @@ void LcdDriver::cursorPositionChange(const uint8_t& cursorX, const uint8_t& curs
   changeAddrCounter(cursorY << 6 | cursorX, true);
 }
 
-void LcdDriver::displayAppend(const char* dataToAppend) {}
+void LcdDriver::displayAppend(const char* dataToAppend) {
+  // TODO: consider the effect of reading moving the cursor
+  assert(dataToAppend);
+  assert(LCD_MAX_PRINT_STRING >= strlen(dataToAppend));
+  ramDataWrite((uint8_t*)dataToAppend, strlen(dataToAppend), true);
+}
 
-void LcdDriver::addNewCustomChar(const uint8_t  charPattern[CUSTOM_CHAR_PATTERN_LEN],
-                                 const uint32_t customCharSlot) {
+void LcdDriver::addNewCustomChar(const uint8_t   charPattern[CUSTOM_CHAR_PATTERN_LEN],
+                                 const uint32_t& customCharSlot) {
   assert(customCharSlot < MAX_CUSTOM_PATTERN);
   assert(charPattern);
 
-  uint8_t addrList[1] = {customCharSlot};
-
-  ramDataWrite(charPattern, CUSTOM_CHAR_PATTERN_LEN);
+  changeAddrCounter(customCharSlot * LCD_MEMUSED_PER_x8_CHAR, false);
+  ramDataWrite(charPattern, CUSTOM_CHAR_PATTERN_LEN, false);
 }
 
 void LcdDriver::changeAddrCounter(const uint8_t& addr, const bool& isDataRam) {
@@ -270,19 +293,29 @@ void LcdDriver::changeAddrCounter(const uint8_t& addr, const bool& isDataRam) {
 }
 
 /* RAM stuffs */
-void LcdDriver::ramDataWrite(const uint8_t* data, const uint32_t dataLen) {
+void LcdDriver::ramDataWrite(const uint8_t* data, const uint32_t dataLen, const bool& isTextMode) {
   assert(data);
+  assert(dataLen > 0);
 
   for (uint32_t strIndex = 0; strIndex < dataLen; ++strIndex) {
-    if (isalpha(data[strIndex]) || isdigit(data[strIndex])) {
-      parallelDataWriteSingle(data[strIndex], true);
-    } else if (isspace(data[strIndex])) {
-      if (0x0a == data[strIndex]) {
-        // newline case
-        parallelDataWriteSingle(LCD_JUMP_LINE_COMMAND, false);
-      } else if (0x20 == data[strIndex]) {
+    if (isTextMode) {
+      if (isspace(data[strIndex])) {
+        if (0x0a == data[strIndex]) {
+          // newline case
+          parallelDataWriteSingle(LCD_JUMP_LINE_COMMAND, false);
+        } else if (0x20 == data[strIndex]) {
+          parallelDataWriteSingle(data[strIndex], true);
+        }
+        // parse special character
+      } else if (('$' == data[strIndex]) && (strIndex < dataLen - 1) &&
+                 isdigit(data[strIndex + 1]) && (data[strIndex + 1] - '0' < MAX_CUSTOM_PATTERN)) {
+        parallelDataWriteSingle(data[strIndex + 1] - '0', true);
+        ++strIndex;
+      } else {
         parallelDataWriteSingle(data[strIndex], true);
       }
+    } else {
+      parallelDataWriteSingle(data[strIndex], true);
     }
   }
 }

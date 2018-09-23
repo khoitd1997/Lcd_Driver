@@ -119,4 +119,5 @@ Tivaware_Dep/drivers \
 Tivaware_Dep/sensorlib/ccs/Debug \
 Tivaware_Dep/utils \
 general_timer \
+src \
 

@@ -16,7 +16,7 @@ static const uint32_t PIN_DESC_CLOCK_INDEX = 0;
 static const uint32_t PIN_DESC_PORT_INDEX  = 1;
 static const uint32_t PIN_DESC_PIN_INDEX   = 2;
 
-static const uint32_t MAX_CUSTOM_PATTERN      = 16;
+static const uint32_t MAX_CUSTOM_PATTERN      = 8;
 static const uint32_t CUSTOM_CHAR_PATTERN_LEN = 8;
 
 typedef struct {
@@ -75,7 +75,7 @@ class LcdDriver {
   // ram stuffs
   void    changeAddrCounter(const uint8_t &addr, const bool &isDataRam);
   uint8_t instructionDataRead(void);
-  void    ramDataWrite(const uint8_t *data, const uint32_t dataLen);
+  void    ramDataWrite(const uint8_t *data, const uint32_t dataLen, const bool &isTextMode);
   void    ramDataRead(uint8_t *       returnData,
                       const uint32_t &totalDataRead,
                       const uint8_t & startingRamAddr,
@@ -91,8 +91,8 @@ class LcdDriver {
   void displayAppend(const char *dataToAppend);
 
   // custom char
-  void addNewCustomChar(const uint8_t  charPattern[CUSTOM_CHAR_PATTERN_LEN],
-                        const uint32_t customCharSlot);
+  void addNewCustomChar(const uint8_t   charPattern[CUSTOM_CHAR_PATTERN_LEN],
+                        const uint32_t &customCharSlot);
 
   // cursor and others
   void displaySwitch(const bool &displayStatus);
