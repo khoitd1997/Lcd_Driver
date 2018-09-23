@@ -84,28 +84,28 @@ void LcdDriver::pinPadConfig(const uint32_t pinDesc[PIN_DESCRIPTION_LEN]) {
 }
 
 /* command helper */
-uint32_t LcdDriver::createEntryModeCommand(const bool& cursorRightDir,
-                                           const bool& displayShiftEnabled) {
-  uint32_t result = 0;
+uint8_t LcdDriver::createEntryModeCommand(const bool& cursorRightDir,
+                                          const bool& displayShiftEnabled) {
+  uint8_t result = 0;
   bit_set(result, BIT(2));
   cursorRightDir ? bit_set(result, BIT(1)) : 0;
   displayShiftEnabled ? bit_set(result, BIT(0)) : 0;
   return result;
 }
-uint32_t LcdDriver::createDisplayCommand(const bool& displayOn,
-                                         const bool& cursorOn,
-                                         const bool& isCursorBlink) {
-  uint32_t result = 0;
+uint8_t LcdDriver::createDisplayCommand(const bool& displayOn,
+                                        const bool& cursorOn,
+                                        const bool& isCursorBlink) {
+  uint8_t result = 0;
   bit_set(result, BIT(3));
   displayOn ? bit_set(result, BIT(2)) : 0;
   cursorOn ? bit_set(result, BIT(1)) : 0;
   isCursorBlink ? bit_set(result, BIT(0)) : 0;
   return result;
 }
-uint32_t LcdDriver::createFunctionSetCommand(const bool& is8BitDataLen,
-                                             const bool& is2Lines,
-                                             const bool& is5x10Font) {
-  uint32_t result = 0;
+uint8_t LcdDriver::createFunctionSetCommand(const bool& is8BitDataLen,
+                                            const bool& is2Lines,
+                                            const bool& is5x10Font) {
+  uint8_t result = 0;
   bit_set(result, BIT(5));
   is8BitDataLen ? bit_set(result, BIT(4)) : 0;
   is2Lines ? bit_set(result, BIT(3)) : 0;
@@ -113,9 +113,9 @@ uint32_t LcdDriver::createFunctionSetCommand(const bool& is8BitDataLen,
   return result;
 }
 
-uint32_t LcdDriver::createCursorDisplayShiftCommand(const bool& isShiftDisplay,
-                                                    const bool& isRight) {
-  uint32_t result = 0;
+uint8_t LcdDriver::createCursorDisplayShiftCommand(const bool& isShiftDisplay,
+                                                   const bool& isRight) {
+  uint8_t result = 0;
   bit_set(result, BIT(4));
   isShiftDisplay ? bit_set(result, BIT(3)) : 0;
   isRight ? bit_set(result, BIT(2)) : 0;
@@ -129,29 +129,32 @@ void LcdDriver::parallelModeSwitch(const bool& isInput) {
   }
 }
 
-void LcdDriver::parallelDataWrite(const uint32_t* dataList,
+void LcdDriver::parallelDataWriteSingle(const uint8_t& data, const bool& isDataReg) {
+  parallelModeSwitch(false);
+  comSetup(isDataReg, false);
+  for (int32_t bitIndex = _totalBitPerPin - 1; bitIndex != -1; --bitIndex) {
+    for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
+      pinWrite(_lcdConfig.parallelPinList[pin], bit_get(data >> 4 * bitIndex, BIT(pin)));
+    }
+    if (0 != bitIndex) { comMaintain(false); }
+  }
+  comStop();
+}
+
+void LcdDriver::parallelDataWrite(const uint8_t*  dataList,
                                   const uint32_t& dataLen,
                                   const bool&     isDataReg) {
   parallelModeSwitch(false);
   comSetup(isDataReg, false);
-  uint32_t _totalBitPerPin = 8 / TOTAL_PARALLEL_PIN;
 
-  for (uint32_t dataIndex = 0; dataIndex < dataLen - 1; ++dataIndex) {
+  for (uint32_t dataIndex = 0; dataIndex < dataLen; ++dataIndex) {
     for (int32_t bitIndex = _totalBitPerPin - 1; bitIndex != -1; --bitIndex) {
       for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
         pinWrite(_lcdConfig.parallelPinList[pin],
                  bit_get(dataList[dataIndex] >> 4 * bitIndex, BIT(pin)));
       }
-      comMaintain(false);
+      if ((0 != bitIndex) || ((dataLen - 1) != dataIndex)) { comMaintain(false); }
     }
-  }
-
-  for (int32_t bitIndex = _totalBitPerPin - 1; bitIndex != -1; --bitIndex) {
-    for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
-      pinWrite(_lcdConfig.parallelPinList[pin],
-               bit_get(dataList[dataLen - 1] >> 4 * bitIndex, BIT(pin)));
-    }
-    if (0 != bitIndex) { comMaintain(false); }
   }
   comStop();
 }
@@ -166,24 +169,15 @@ void LcdDriver::parallelDataRead(const bool&     isDataReg,
     readDataBuf[dataBufIndex] = 0;
   }
 
-  for (uint32_t dataIndex = 0; dataIndex < totalReadData - 1; ++dataIndex) {
+  for (uint32_t dataIndex = 0; dataIndex < totalReadData; ++dataIndex) {
     for (int32_t bitIndex = _totalBitPerPin - 1; bitIndex != -1; --bitIndex) {
       for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
         if (pinRead(_lcdConfig.parallelPinList[pin])) {
           bit_set(readDataBuf[dataIndex], BIT(pin + (4 * bitIndex)));
         }
       }
-      comMaintain(true);
+      if (0 != bitIndex || ((totalReadData - 1) != dataIndex)) { comMaintain(true); }
     }
-  }
-
-  for (int32_t bitIndex = _totalBitPerPin - 1; bitIndex != -1; --bitIndex) {
-    for (uint32_t pin = 0; pin < TOTAL_PARALLEL_PIN; ++pin) {
-      if (pinRead(_lcdConfig.parallelPinList[pin])) {
-        bit_set(readDataBuf[totalReadData - 1], BIT(pin + (4 * bitIndex)));
-      }
-    }
-    if (0 != bitIndex) { comMaintain(true); }
   }
 
   comStop();

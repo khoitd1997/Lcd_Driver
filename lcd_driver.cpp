@@ -161,11 +161,11 @@ void LcdDriver::beginSeqWrite(void) {
 }
 
 void LcdDriver::configWrite(void) {
-  uint32_t configData[5] = {0};
-  configData[0]          = createFunctionSetCommand(false, true, false);
-  configData[1]          = createDisplayCommand(true, true, true);
-  configData[2]          = LCD_CLEAR_COMMAND;
-  configData[3]          = createEntryModeCommand(true, false);
+  uint8_t configData[5] = {0};
+  configData[0]         = createFunctionSetCommand(false, true, false);
+  configData[1]         = createDisplayCommand(true, true, true);
+  configData[2]         = LCD_CLEAR_COMMAND;
+  configData[3]         = createEntryModeCommand(true, false);
 
   beginSeqWrite();
 
@@ -201,17 +201,17 @@ void LcdDriver::enable(void) {
 
   // Initialize the UART for console I/O.
   UARTStdioConfig(0, 115200, 16000000);
-  displayWrite("01234");
+  // displayWrite("01234");
   uint8_t returnData[5] = {0};
 
   for (;;) {
-    displayWrite("01234");
+    // displayWrite("313213");
     // uint32_t startComamndList[] = {LCD_CLEAR_COMMAND};
     // parallelDataWrite(startComamndList, 1, false);
 
-    // cursorPositionChange(3, 1);
+    cursorPositionChange(15, 1);
 
-    ramDataRead(returnData, 5, 0, true);
+    // ramDataRead(returnData, 5, 0, true);
     UARTprintf("0: %d, 1: %d, 2: %d, 3: %d, 4: %d\n",
                returnData[0],
                returnData[1],
@@ -244,36 +244,44 @@ void LcdDriver::displayWrite(const char* dataToWrite) {
   assert(dataToWrite);
   assert(LCD_MAX_PRINT_STRING >= strlen(dataToWrite));
 
-  uint32_t startComamndList[] = {LCD_CLEAR_COMMAND};
-  parallelDataWrite(startComamndList, 1, false);
-  ramDataWrite(dataToWrite);
+  parallelDataWriteSingle(LCD_CLEAR_COMMAND, false);
+  ramDataWrite((uint8_t*)dataToWrite, strlen(dataToWrite));
 }
 
-void LcdDriver::cursorPositionChange(const uint32_t& cursorX, const uint32_t& cursorY) {
+void LcdDriver::cursorPositionChange(const uint8_t& cursorX, const uint8_t& cursorY) {
   assert(cursorX <= MAX_LCD_X && cursorY <= MAX_LCD_Y);
-  uint32_t startComamndList[] = {0x80 | cursorY << 6 | cursorX};
-  parallelDataWrite(startComamndList, 1, false);
+  changeAddrCounter(cursorY << 6 | cursorX, true);
 }
 
 void LcdDriver::displayAppend(const char* dataToAppend) {}
 
-/* RAM stuffs */
-void LcdDriver::ramDataWrite(const char* data) {
-  assert(data);
-  uint32_t dataList[1] = {0};
+void LcdDriver::addNewCustomChar(const uint8_t  charPattern[CUSTOM_CHAR_PATTERN_LEN],
+                                 const uint32_t customCharSlot) {
+  assert(customCharSlot < MAX_CUSTOM_PATTERN);
+  assert(charPattern);
 
-  for (uint32_t strIndex = 0; strIndex <= strlen(data); ++strIndex) {
+  uint8_t addrList[1] = {customCharSlot};
+
+  ramDataWrite(charPattern, CUSTOM_CHAR_PATTERN_LEN);
+}
+
+void LcdDriver::changeAddrCounter(const uint8_t& addr, const bool& isDataRam) {
+  parallelDataWriteSingle(addr | (isDataRam ? BIT(7) : BIT(6)), false);
+}
+
+/* RAM stuffs */
+void LcdDriver::ramDataWrite(const uint8_t* data, const uint32_t dataLen) {
+  assert(data);
+
+  for (uint32_t strIndex = 0; strIndex < dataLen; ++strIndex) {
     if (isalpha(data[strIndex]) || isdigit(data[strIndex])) {
-      dataList[0] = data[strIndex];
-      parallelDataWrite(dataList, 1, true);
+      parallelDataWriteSingle(data[strIndex], true);
     } else if (isspace(data[strIndex])) {
       if (0x0a == data[strIndex]) {
         // newline case
-        dataList[0] = LCD_JUMP_LINE_COMMAND;
-        parallelDataWrite(dataList, 1, false);
+        parallelDataWriteSingle(LCD_JUMP_LINE_COMMAND, false);
       } else if (0x20 == data[strIndex]) {
-        dataList[0] = data[strIndex];
-        parallelDataWrite(dataList, 1, true);
+        parallelDataWriteSingle(data[strIndex], true);
       }
     }
   }
@@ -299,11 +307,8 @@ void LcdDriver::ramDataRead(uint8_t*        returnData,
   assert(returnData);
   assert(totalDataRead > 0);
 
-  // set addr counter b4 read
-  uint32_t dataAddr[] = {startingRamAddr};
-  isDataRam ? bit_set(dataAddr[0], BIT(7)) : bit_set(dataAddr[0], BIT(6));
-
-  parallelDataWrite(dataAddr, 1, false);
+  // set address b4 read
+  changeAddrCounter(startingRamAddr, isDataRam);
 
   parallelDataRead(true, returnData, totalDataRead);
 }
