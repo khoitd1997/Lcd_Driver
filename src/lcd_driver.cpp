@@ -166,4 +166,12 @@ void LcdDriver::newCustomCharAdd(const uint8_t   charPattern[CUSTOM_CHAR_PATTERN
   ramDataWrite(charPattern, CUSTOM_CHAR_PATTERN_LEN, false);
 }
 
+void LcdDriver::lcdSettingSwitch(const bool& displayOn,
+                                 const bool& cursorOn,
+                                 const bool& cursorBlinkOn) {
+  parallelDataWriteSingle(displayCommandCreate(displayOn, cursorOn, cursorBlinkOn), false);
+}
+
+void LcdDriver::lcdReset(void) { parallelDataWriteSingle(LCD_CLEAR_COMMAND, false); }
+
 }  // namespace lcddriver

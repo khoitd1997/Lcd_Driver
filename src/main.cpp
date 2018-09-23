@@ -76,10 +76,18 @@ int main(void) {
   lcdDriver.newCustomCharAdd(charPattern0, 0);
   lcdDriver.newCustomCharAdd(charPattern1, 1);
   lcdDriver.newCustomCharAdd(charPattern2, 2);
-
+  lcdDriver.lcdReset();
   for (;;) {
+    // write some custom char and string
     lcdDriver.displayWrite("`0`1`2");
     lcdDriver.displayAppend("\nA string");
+    generalTimer.wait(2000);
+
+    // turn on everything
+    lcdDriver.lcdSettingSwitch(true, true, true);
+    generalTimer.wait(2000);
+    // turn off everything except display
+    lcdDriver.lcdSettingSwitch(true, false, false);
     generalTimer.wait(2000);
   }
   return 0;

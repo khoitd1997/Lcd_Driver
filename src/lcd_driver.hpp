@@ -96,12 +96,10 @@ class LcdDriver {
   void newCustomCharAdd(const uint8_t   charPattern[CUSTOM_CHAR_PATTERN_LEN],
                         const uint32_t &customCharSlot);
 
-  // cursor and others
-  // TODO: implement these
-  void displaySwitch(const bool &displayStatus);
-  void cursorSwitch(const bool &cursorStatus);
+  // other display stuffs
+  void lcdSettingSwitch(const bool &displayOn, const bool &cursorOn, const bool &cursorBlinkOn);
+  void lcdReset(void);
   void cursorPositionChange(const uint8_t &cursorX, const uint8_t &cursorY);
-  void cursorBlinkSwitch(const bool &cursorBlinkStatus);
 
   // back led would need relay or transistor to control it
   void backLedSwitch(const bool &isBackLedOn);
