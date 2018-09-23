@@ -1,0 +1,49 @@
+#ifndef _LCD_INCLUDE_HPP
+#define _LCD_INCLUDE_HPP
+
+#define MAX_LCD_X 15  // limited by the horizontal length of the LCD
+#define MAX_LCD_Y 1   // limited by the vertical len of LCD
+
+/* Timing Variable */
+
+#define COM_TIME_SCALER 7000
+
+// waiting phase time
+#define LCD_WARM_UP_TIME_NANOSEC 49000000
+#define LCD_FIRST_INIT_TIME_NANOSEC 4500000
+#define LCD_SECOND_INIT_TIME_NANOSEC 150000
+
+// data cycle time
+#define LCD_PULSE_WIDTH_NANOSEC 200 * COM_TIME_SCALER
+#define LCD_MIN_CYCLE_TIME_NANOSEC 410 * COM_TIME_SCALER
+
+// setup and hold time
+
+// for writing
+#define LCD_DATA_SETUP_TIME_NANOSEC 45 * COM_TIME_SCALER
+#define LCD_DATA_HOLD_TIME_NANOSEC 15 * COM_TIME_SCALER
+
+// for address based
+#define LCD_ADDR_SETUP_TIME_NANOSEC 35 * COM_TIME_SCALER
+#define LCD_ADDR_HOLD_TIME_NANOSEC 15 * COM_TIME_SCALER
+
+#define TIVA_MAX_RISE_TIME 13
+#define TIVA_MAX_FALSE_TIME 14
+
+#define LCD_DATA_WRITE_WAIT_NANOSEC \
+  TIVA_MAX_RISE_TIME + LCD_PULSE_WIDTH_NANOSEC - (LCD_DATA_SETUP_TIME_NANOSEC)
+
+#define LCD_DATA_READ_WAIT_NANOSEC 800  // based on datasheet
+
+#define LCD_STARTUP_COMMAND 0b110000
+#define LCD_BEGIN_COMMAND 0b100000
+#define LCD_CLEAR_COMMAND 0b1
+#define LCD_RETURN_HOME_COMMAND 0b10
+#define LCD_JUMP_LINE_COMMAND 0xc0
+
+#define LCD_BUSY_BIT 7
+#define LCD_ADDR_COUNTER_MASK 0x7f
+
+#define LCD_MEMUSED_PER_x8_CHAR 8
+
+#endif

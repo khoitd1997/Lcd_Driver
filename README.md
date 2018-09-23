@@ -52,6 +52,7 @@ Another note is that if you haven't, you should increase the stacksize allowed b
     - lcd_driver.hpp: header file declaring the LcdDriver class
     - lcd_utils.cpp: defining utils functions of the LcdDriver class
     - main.cpp: serve as an example for how to use the LcdDriver class
+    - lcd_include.hpp: contain timing information, commands and other constants and macros about the LCD
 
 ## Adding and Using Custom Character
 

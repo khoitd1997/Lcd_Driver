@@ -1,6 +1,7 @@
 #include "lcd_driver.hpp"
 
 #include <cassert>
+#include <cctype>
 #include <cstdint>
 
 // peripheral
@@ -16,7 +17,9 @@
 
 // application
 #include "general_timer/general_timer.hpp"
+#include "lcd_include.hpp"
 #include "tiva_utils/bit_manipulation.h"
+
 namespace lcddriver {
 /* Pin stuffs */
 
@@ -195,5 +198,64 @@ void LcdDriver::dataWrite4Bit(const uint32_t& dataToWrite, const bool& stopAfter
     comMaintain(false);
   }
 }
+
+void LcdDriver::addrCounterChange(const uint8_t& addr, const bool& isDataRam) {
+  parallelDataWriteSingle(addr | (isDataRam ? BIT(7) : BIT(6)), false);
+}
+
+/* RAM stuffs */
+
+void LcdDriver::ramDataRead(uint8_t*        returnData,
+                            const uint32_t& totalDataRead,
+                            const uint8_t&  startingRamAddr,
+                            const bool&     isDataRam) {
+  assert(returnData);
+  assert(totalDataRead > 0);
+
+  // set address b4 read
+  addrCounterChange(startingRamAddr, isDataRam);
+
+  parallelDataRead(true, returnData, totalDataRead);
+}
+
+void LcdDriver::ramDataWrite(const uint8_t* data, const uint32_t dataLen, const bool& isTextMode) {
+  assert(data);
+  assert(dataLen > 0);
+
+  for (uint32_t strIndex = 0; strIndex < dataLen; ++strIndex) {
+    if (isTextMode) {
+      if (isspace(data[strIndex])) {
+        if (0x0a == data[strIndex]) {
+          // newline case
+          parallelDataWriteSingle(LCD_JUMP_LINE_COMMAND, false);
+        } else if (0x20 == data[strIndex]) {
+          parallelDataWriteSingle(data[strIndex], true);
+        }
+        // parse special character
+      } else if (('`' == data[strIndex]) && (strIndex < dataLen - 1) &&
+                 isdigit(data[strIndex + 1]) &&
+                 (data[strIndex + 1] - '0' < MAX_TOTAL_CUSTOM_PATTERN)) {
+        parallelDataWriteSingle(data[strIndex + 1] - '0', true);
+        ++strIndex;
+      } else {
+        parallelDataWriteSingle(data[strIndex], true);
+      }
+    } else {
+      parallelDataWriteSingle(data[strIndex], true);
+    }
+  }
+}
+
+uint8_t LcdDriver::addrCounterGet(void) {
+  return bit_get(instructionDataRead(), LCD_ADDR_COUNTER_MASK);
+}
+
+uint8_t LcdDriver::instructionDataRead(void) {
+  uint8_t dataBuf[1] = {0};
+  parallelDataRead(false, dataBuf, 1);
+  return dataBuf[0];
+}
+
+bool LcdDriver::lcdIsBusy(void) { return (bool)bit_get(instructionDataRead(), BIT(LCD_BUSY_BIT)); }
 
 }  // namespace lcddriver

@@ -18,58 +18,10 @@
 
 // application
 #include "general_timer/general_timer.hpp"
+#include "lcd_include.hpp"
 #include "tiva_utils/bit_manipulation.h"
 
-// debug
-#include "driverlib/uart.h"
-#include "utils/uartstdio.h"
-
 namespace lcddriver {
-
-#define MAX_LCD_X 15  // limited by the horizontal length of the LCD
-#define MAX_LCD_Y 1   // limited by the vertical len of LCD
-
-/* Timing Variable */
-
-#define COM_TIME_SCALER 7000
-
-// waiting phase time
-#define LCD_WARM_UP_TIME_NANOSEC 49000000
-#define LCD_FIRST_INIT_TIME_NANOSEC 4500000
-#define LCD_SECOND_INIT_TIME_NANOSEC 150000
-
-// data cycle time
-#define LCD_PULSE_WIDTH_NANOSEC 200 * COM_TIME_SCALER
-#define LCD_MIN_CYCLE_TIME_NANOSEC 410 * COM_TIME_SCALER
-
-// setup and hold time
-
-// for writing
-#define LCD_DATA_SETUP_TIME_NANOSEC 45 * COM_TIME_SCALER
-#define LCD_DATA_HOLD_TIME_NANOSEC 15 * COM_TIME_SCALER
-
-// for address based
-#define LCD_ADDR_SETUP_TIME_NANOSEC 35 * COM_TIME_SCALER
-#define LCD_ADDR_HOLD_TIME_NANOSEC 15 * COM_TIME_SCALER
-
-#define TIVA_MAX_RISE_TIME 13
-#define TIVA_MAX_FALSE_TIME 14
-
-#define LCD_DATA_WRITE_WAIT_NANOSEC \
-  TIVA_MAX_RISE_TIME + LCD_PULSE_WIDTH_NANOSEC - (LCD_DATA_SETUP_TIME_NANOSEC)
-
-#define LCD_DATA_READ_WAIT_NANOSEC 800  // based on datasheet
-
-#define LCD_STARTUP_COMMAND 0b110000
-#define LCD_BEGIN_COMMAND 0b100000
-#define LCD_CLEAR_COMMAND 0b1
-#define LCD_RETURN_HOME_COMMAND 0b10
-#define LCD_JUMP_LINE_COMMAND 0xc0
-
-#define LCD_BUSY_BIT 7
-#define LCD_ADDR_COUNTER_MASK 0x7f
-
-#define LCD_MEMUSED_PER_x8_CHAR 8
 
 static void enableClockPeripheral(const uint32_t& clockMask) {
   SysCtlPeripheralEnable(clockMask);
@@ -114,7 +66,7 @@ void LcdDriver::init(void) {
   parallelModeSwitch(false);
 }
 
-/* com Stuff*/
+/* LCD bit banging and Communication Stuffs*/
 
 void LcdDriver::registerSelect(const bool& isDataReg) {
   pinWrite(_lcdConfig.regSelectPin, isDataReg);
@@ -177,13 +129,14 @@ void LcdDriver::enable(void) {
   dataWrite4Bit(LCD_STARTUP_COMMAND, true);
   configWrite();
 }
+
 /* Led Stuff */
 
 void LcdDriver::backLedSwitch(const bool& isBackLedOn) {
   pinWrite(_lcdConfig.backLightPin, isBackLedOn);
 }
 
-// content
+/* Content on LCD */
 void LcdDriver::displayWrite(const char* dataToWrite) {
   assert(dataToWrite);
   assert(LCD_MAX_PRINT_STRING >= strlen(dataToWrite));
@@ -206,67 +159,11 @@ void LcdDriver::displayAppend(const char* dataToAppend) {
 
 void LcdDriver::newCustomCharAdd(const uint8_t   charPattern[CUSTOM_CHAR_PATTERN_LEN],
                                  const uint32_t& customCharSlot) {
-  assert(customCharSlot < MAX_CUSTOM_PATTERN);
+  assert(customCharSlot < MAX_TOTAL_CUSTOM_PATTERN);
   assert(charPattern);
 
   addrCounterChange(customCharSlot * LCD_MEMUSED_PER_x8_CHAR, false);
   ramDataWrite(charPattern, CUSTOM_CHAR_PATTERN_LEN, false);
 }
 
-void LcdDriver::addrCounterChange(const uint8_t& addr, const bool& isDataRam) {
-  parallelDataWriteSingle(addr | (isDataRam ? BIT(7) : BIT(6)), false);
-}
-
-/* RAM stuffs */
-void LcdDriver::ramDataWrite(const uint8_t* data, const uint32_t dataLen, const bool& isTextMode) {
-  assert(data);
-  assert(dataLen > 0);
-
-  for (uint32_t strIndex = 0; strIndex < dataLen; ++strIndex) {
-    if (isTextMode) {
-      if (isspace(data[strIndex])) {
-        if (0x0a == data[strIndex]) {
-          // newline case
-          parallelDataWriteSingle(LCD_JUMP_LINE_COMMAND, false);
-        } else if (0x20 == data[strIndex]) {
-          parallelDataWriteSingle(data[strIndex], true);
-        }
-        // parse special character
-      } else if (('`' == data[strIndex]) && (strIndex < dataLen - 1) &&
-                 isdigit(data[strIndex + 1]) && (data[strIndex + 1] - '0' < MAX_CUSTOM_PATTERN)) {
-        parallelDataWriteSingle(data[strIndex + 1] - '0', true);
-        ++strIndex;
-      } else {
-        parallelDataWriteSingle(data[strIndex], true);
-      }
-    } else {
-      parallelDataWriteSingle(data[strIndex], true);
-    }
-  }
-}
-
-uint8_t LcdDriver::addrCounterGet(void) {
-  return bit_get(instructionDataRead(), LCD_ADDR_COUNTER_MASK);
-}
-
-bool LcdDriver::lcdIsBusy(void) { return (bool)bit_get(instructionDataRead(), BIT(LCD_BUSY_BIT)); }
-
-uint8_t LcdDriver::instructionDataRead(void) {
-  uint8_t dataBuf[1] = {0};
-  parallelDataRead(false, dataBuf, 1);
-  return dataBuf[0];
-}
-
-void LcdDriver::ramDataRead(uint8_t*        returnData,
-                            const uint32_t& totalDataRead,
-                            const uint8_t&  startingRamAddr,
-                            const bool&     isDataRam) {
-  assert(returnData);
-  assert(totalDataRead > 0);
-
-  // set address b4 read
-  addrCounterChange(startingRamAddr, isDataRam);
-
-  parallelDataRead(true, returnData, totalDataRead);
-}
 }  // namespace lcddriver
