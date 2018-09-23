@@ -84,6 +84,7 @@ class LcdDriver {
   // cursor and others
   void displaySwitch(const bool &displayStatus);
   void cursorSwitch(const bool &cursorStatus);
+  void cursorPositionChange(const uint32_t &cursorX, const uint32_t &cursorY);
   void cursorBlinkSwitch(const bool &cursorBlinkStatus);
 
   // back led

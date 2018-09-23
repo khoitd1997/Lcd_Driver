@@ -24,8 +24,8 @@ ORDERED_OBJS += \
 "../Tivaware_Dep/sensorlib/ccs/Debug/sensorlib.lib" \
 $(GEN_CMDS__FLAG) \
 -llibc.a \
--l"/home/kd/workspace_v8/lcd_tiva/Tivaware_Dep/sensorlib/ccs/Debug/sensorlib.lib" \
--l"/home/kd/workspace_v8/lcd_tiva/Tivaware_Dep/driverlib/ccs/Debug/driverlib.lib" \
+-l"/home/kd/Lcd_Driver/Tivaware_Dep/sensorlib/ccs/Debug/sensorlib.lib" \
+-l"/home/kd/Lcd_Driver/Tivaware_Dep/driverlib/ccs/Debug/driverlib.lib" \
 
 -include ../makefile.init
 

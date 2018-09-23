@@ -4,7 +4,7 @@
 		<cconfiguration id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.1048644762">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="com.ti.ccstudio.buildDefinitions.TMS470.Debug.1048644762" moduleId="org.eclipse.cdt.core.settings" name="Debug">
 				<macros>
-					<stringMacro name="SW_ROOT" type="VALUE_TEXT" value="/home/kd/workspace_v8/lcd_tiva/Tivaware_Dep"/>
+					<stringMacro name="SW_ROOT" type="VALUE_TEXT" value="/home/kd/Lcd_Driver/Tivaware_Dep"/>
 				</macros>
 				<externalSettings/>
 				<extensions>

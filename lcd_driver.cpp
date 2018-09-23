@@ -22,6 +22,9 @@
 #include "general_timer/general_timer.hpp"
 #include "tiva_utils/bit_manipulation.h"
 
+#define MAX_LCD_X 15  // limited by the horizontal length of the LCD
+#define MAX_LCD_Y 1   // limited by the vertical len of LCD
+
 /* Timing Variable */
 
 #define COM_TIME_SCALER 10000
@@ -349,6 +352,12 @@ void LcdDriver::displayWrite(const char* dataToWrite) {
   ramDataWrite(dataToWrite);
 }
 
+void LcdDriver::cursorPositionChange(const uint32_t& cursorX, const uint32_t& cursorY) {
+  assert(cursorX <= MAX_LCD_X && cursorY <= MAX_LCD_Y);
+  uint32_t startComamndList[] = {0x80 | cursorY << 6 | cursorX};
+  parallelDataWrite(startComamndList, 1, false);
+}
+
 void LcdDriver::displayAppend(const char* dataToAppend) {}
 /* RAM stuffs */
 void LcdDriver::ramDataWrite(const char* data) {
@@ -368,52 +377,6 @@ void LcdDriver::ramDataWrite(const char* data) {
         parallelDataWrite(dataList, 1, true);
       }
     }
-  }
-
-  // uint32_t dataList[]     = {LCD_CHAR_0,
-  //                        LCD_CHAR_0,
-  //                        LCD_CHAR_0,
-  //                        LCD_CHAR_0,
-  //                        LCD_CHAR_0,
-  //                        LCD_CHAR_0,
-  //                        LCD_CHAR_0,
-  //                        LCD_CHAR_0,
-  //                        LCD_CHAR_0,
-  //                        LCD_CHAR_0,
-  //                        LCD_CHAR_0,
-  //                        LCD_CHAR_0,
-  //                        LCD_CHAR_0,
-  //                        LCD_CHAR_0};
-  // uint32_t commandList[3] = {0};
-
-  // uint32_t startComamndList[5] = {LCD_RETURN_HOME_COMMAND, 0x80};
-
-  // commandList[0] = createCursorDisplayShiftCommand(true, true);
-  // commandList[1] = createCursorDisplayShiftCommand(true, true);
-  // commandList[2] = createCursorDisplayShiftCommand(true, true);
-
-  // _generalTimer.wait(500000000);
-  // parallelDataWrite(startComamndList, 2, false);
-  // _generalTimer.wait(500000000);
-  // parallelDataWrite(dataList, 2, true);
-  // parallelDataWrite(startComamndList, 1, false);
-  // _generalTimer.wait(500000000);
-  // parallelDataWrite(dataList, 2, true);
-  // _generalTimer.wait(500000000);
-
-  // parallelDataWrite(commandList, 1, false);
-  // _generalTimer.wait(500000000);
-  // parallelDataWrite(dataList, 1, true);
-  // parallelDataWrite(commandList, 1, false);
-  // _generalTimer.wait(500000000);
-  // parallelDataWrite(dataList, 1, true);
-  // parallelDataWrite(commandList, 1, false);
-  // _generalTimer.wait(500000000);
-  for (;;) {
-    // parallelDataWrite(commandList, 1, false);
-    // _generalTimer.wait(900000000);
-    // parallelDataWrite(dataList, 2, true);
-    // _generalTimer.wait(900000000);
   }
 }
 void ramDataRead(uint8_t* returnData) {}

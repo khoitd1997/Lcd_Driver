@@ -27,7 +27,7 @@
 	<variableList>
 		<variable>
 			<name>SW_ROOT</name>
-			<value>file:/home/kd/workspace_v8/lcd_tiva/Tivaware_Dep</value>
+			<value>file:/home/kd/Lcd_Driver/Tivaware_Dep</value>
 		</variable>
 	</variableList>
 </projectDescription>

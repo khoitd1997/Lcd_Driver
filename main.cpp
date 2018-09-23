@@ -61,8 +61,8 @@ int main(void) {
   auto lcdDriver = LcdDriver(lcdConfig);
   lcdDriver.init();
   lcdDriver.enable();
-  lcdDriver.displayWrite("Nice\nNewLine");
-
+  // lcdDriver.displayWrite("Nice\nNewLine");
+  lcdDriver.cursorPositionChange(15, 0);
   for (;;) {
     // for now just loop
   }
