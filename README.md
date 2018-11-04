@@ -1,3 +1,5 @@
+[![Documentation Status](https://readthedocs.org/projects/lcd-driver/badge/?version=latest)](https://lcd-driver.readthedocs.io/en/latest/?badge=latest)
+
 # Lcd Driver
 
 Driver using the TivaC Dev board for the 1602A LCD controller. This controller uses a parallel bus that can do 4-bit or 8-bit, there was no standard protocol to talk with it aside from the things noted in the datasheet so it's just pretty big banging until it works
@@ -20,7 +22,7 @@ The project was written mainly for my personal usage so there was more hardcodin
 
 There is doxygen docs of the LcdDriver class here:
 
-[Doxygen Docs](https://rawgit.com/khoitd1997/Lcd_Driver/master/docs/html/index.html)
+[Doxygen Docs](http://lcd-driver.readthedocs.io/)
 
 Check TivaWare documents(included with the full TivaWare) for other stuffs
 
