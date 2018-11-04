@@ -34,7 +34,7 @@ Check TivaWare documents(included with the full TivaWare) for other stuffs
 
 [Custom character generator](https://omerk.github.io/lcdchargen/)(Necessary if you want to create your own character)
 
-## Building and the project
+## Building the project
 
 This is a code composer studio(ccs) project so simply cloning and importing it and then set the SW_ROOT inside the project properties to the TivaDep directory would be enough, for example: my SW_ROOT variable is /path/to/this_repo/Tivaware_Dep, for version 8.2.0.00007, the project builds successfully
 
